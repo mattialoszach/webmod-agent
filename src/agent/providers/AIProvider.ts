@@ -1,5 +1,5 @@
-import type { AgentInput, WebModOperation } from "../../shared/types";
+import type { AgentInput, AgentPlan } from "../../shared/types";
 
 export interface AIProvider {
-  generateOperations(input: AgentInput): Promise<WebModOperation[]>;
+  generatePlan(input: AgentInput): Promise<AgentPlan>;
 }

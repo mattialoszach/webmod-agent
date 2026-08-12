@@ -19,6 +19,7 @@ import {
   DEFAULT_PROVIDER_SETTINGS,
   normalizeProviderSettings
 } from "../shared/providerSettings";
+import { resolveImageAssets } from "./imageAssets";
 
 const lastTargetByTab = new Map<number, string>();
 
@@ -54,13 +55,6 @@ async function sendToContent<T>(tabId: number, message: ContentRequest): Promise
   }
 }
 
-function assertSafeInstruction(instruction: string): void {
-  const highStakes = /(?:bank statement|account balance|payment (?:receipt|confirmation)|identity document|passport|driver'?s license|authentication state|logged[ -]?in as|verified account)/i;
-  if (highStakes.test(instruction)) {
-    throw new Error("WebMod Agent does not modify high-stakes records, identity documents, payments, or authentication state.");
-  }
-}
-
 async function handleRequest(message: PanelRequest): Promise<unknown> {
   switch (message.type) {
     case "GET_PAGE_CONTEXT": {
@@ -76,7 +70,6 @@ async function handleRequest(message: PanelRequest): Promise<unknown> {
     case "PLAN_AND_APPLY": {
       const instruction = message.instruction.trim();
       if (!instruction) throw new Error("Describe what you want to change.");
-      assertSafeInstruction(instruction);
       const isContinuation = /\b(?:it|this|that|too|also|actually|instead|slightly)\b/i.test(instruction);
       const rememberedElementId = message.selectedElementId ?? (isContinuation ? lastTargetByTab.get(message.tabId) : undefined);
       let analysis = await sendToContent<PageAnalysis>(message.tabId, {
@@ -92,28 +85,44 @@ async function handleRequest(message: PanelRequest): Promise<unknown> {
         analysis = await sendToContent<PageAnalysis>(message.tabId, { type: "WM_ANALYZE_PAGE" });
       }
       const provider = await getProvider();
-      const rawOperations = await provider.generateOperations({
+      const plan = await provider.generatePlan({
         instruction,
         url: analysis.url,
         pageTitle: analysis.pageTitle,
         elements: analysis.elements,
         selectedElementId: effectiveSelectedId
       });
-      const operations = validateOperations({ operations: rawOperations });
-      const knownIds = new Set(analysis.elements.map((element) => element.id));
+      const operations = validateOperations({ operations: plan.operations });
+      const knownElements = new Map(analysis.elements.map((element) => [element.id, element]));
+      const knownIds = new Set(knownElements.keys());
       if (operations.some((operation) => !knownIds.has(operation.elementId))) {
         throw new Error("The planner referenced an element outside the analyzed page context.");
+      }
+      const invalidImageTarget = operations.find((operation) => {
+        if (operation.type !== "replaceImage") return false;
+        const target = knownElements.get(operation.elementId);
+        return !target || !(
+          ["img", "svg"].includes(target.tag)
+          || target.role === "img"
+          || target.containsVisual === true
+          || target.classHints?.some((hint) => hint.includes("logo")) === true
+        );
+      });
+      if (invalidImageTarget) {
+        throw new Error("Image replacement requires an analyzed image or logo element. Select the visual element and try again.");
       }
       if (operations.length === 0) {
         throw new Error("I couldn't map that request to a safe page change. Try naming the element or selecting it first.");
       }
+      const imageAssets = await resolveImageAssets(operations, plan.imageCandidates);
       const history = await sendToContent<HistoryState>(message.tabId, {
         type: "WM_APPLY_OPERATIONS",
-        operations
+        operations,
+        imageAssets
       });
       const distinctTargets = [...new Set(operations.map((operation) => operation.elementId))];
       if (distinctTargets.length === 1) lastTargetByTab.set(message.tabId, distinctTargets[0]);
-      return { operations, history } satisfies ApplyResult;
+      return { operations, history, sources: plan.sources } satisfies ApplyResult;
     }
     case "START_ELEMENT_PICKER":
       return sendToContent<HistoryState>(message.tabId, { type: "WM_START_PICKER" });

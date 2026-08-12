@@ -76,6 +76,16 @@ const safeUrlSchema = z.string().max(2048).refine((value) => {
   }
 }, "Unsupported or unsafe URL");
 
+const safeImageUrlSchema = z.string().max(2048).refine((value) => {
+  if (/["\\\u0000-\u001f\u007f]/.test(value)) return false;
+  try {
+    const parsed = new URL(value);
+    return ["https:", "http:"].includes(parsed.protocol) && !parsed.username && !parsed.password;
+  } catch {
+    return false;
+  }
+}, "Unsupported or unsafe image URL");
+
 const elementIdSchema = z.string().regex(/^wm_\d+$/);
 
 export const webModOperationSchema = z.discriminatedUnion("type", [
@@ -96,7 +106,14 @@ export const webModOperationSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("replaceImage"),
     elementId: elementIdSchema,
-    src: safeUrlSchema
+    src: safeImageUrlSchema
+  }).strict(),
+  z.object({
+    type: z.literal("setBackgroundImage"),
+    elementId: elementIdSchema,
+    src: safeImageUrlSchema,
+    fit: z.enum(["cover", "contain"]),
+    position: z.enum(["center", "top", "bottom", "left", "right"])
   }).strict(),
   z.object({
     type: z.literal("setAttribute"),
@@ -174,6 +191,18 @@ export const operationJsonSchema = {
               type: { const: "replaceImage" },
               elementId: { type: "string", pattern: "^wm_[0-9]+$" },
               src: { type: "string", maxLength: 2048 }
+            }
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["type", "elementId", "src", "fit", "position"],
+            properties: {
+              type: { const: "setBackgroundImage" },
+              elementId: { type: "string", pattern: "^wm_[0-9]+$" },
+              src: { type: "string", maxLength: 2048 },
+              fit: { enum: ["cover", "contain"] },
+              position: { enum: ["center", "top", "bottom", "left", "right"] }
             }
           },
           {

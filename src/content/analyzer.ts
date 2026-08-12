@@ -4,9 +4,12 @@ import { ElementRegistry } from "./elementRegistry";
 const MAX_ELEMENTS = 180;
 const CANDIDATE_SELECTOR = [
   "body", "header", "nav", "main", "aside", "section", "article", "footer",
-  "h1", "h2", "h3", "h4", "p", "a", "button", "img", "input", "textarea",
-  "select", "label", "form", "[role]", "[aria-label]", "[contenteditable='true']",
-  "[class*='card' i]", "[class*='sidebar' i]", "[class*='hero' i]"
+  "h1", "h2", "h3", "h4", "p", "a", "button", "img", "svg", "input", "textarea",
+  "select", "label", "form", "table", "thead", "tbody", "tr", "th", "td",
+  "ul", "ol", "li", "dl", "dt", "dd", "figure", "figcaption",
+  "[role]", "[aria-label]", "[contenteditable='true']",
+  "[class*='card' i]", "[class*='sidebar' i]", "[class*='hero' i]",
+  "[class*='logo' i]", "[id*='logo' i]"
 ].join(",");
 
 const STYLE_PROPERTIES = [
@@ -48,9 +51,9 @@ function viewportPosition(element: Element): "visible" | "nearby" | undefined {
 }
 
 function classHints(element: Element): string[] | undefined {
-  const useful = Array.from(element.classList)
+  const useful = [...Array.from(element.classList), element.id]
     .map((name) => name.toLowerCase())
-    .filter((name) => /card|sidebar|nav|header|hero|title|content|profile|menu|footer/.test(name))
+    .filter((name) => /card|sidebar|nav|header|hero|title|content|profile|menu|footer|logo/.test(name))
     .slice(0, 4);
   return useful.length > 0 ? useful : undefined;
 }
@@ -68,11 +71,27 @@ function semanticScore(element: Element, viewport: "visible" | "nearby"): number
   const tag = element.tagName.toLowerCase();
   let score = viewport === "visible" ? 100 : 20;
   if (/^h[1-3]$/.test(tag)) score += 40;
-  if (["button", "a", "nav", "main", "header", "aside", "article", "form"].includes(tag)) score += 25;
+  if (["button", "a", "img", "nav", "main", "header", "aside", "article", "form"].includes(tag)) score += 25;
+  if (["table", "th", "td", "li", "dt", "dd"].includes(tag)) score += 15;
+  if (/logo/i.test(`${element.id} ${element.getAttribute("class") ?? ""}`)) score += 35;
   if (element.hasAttribute("aria-label") || element.hasAttribute("role")) score += 15;
   const rect = element.getBoundingClientRect();
   if (rect.width * rect.height > window.innerWidth * window.innerHeight * 0.15) score += 10;
   return score;
+}
+
+function landmark(element: Element): SemanticElement["landmark"] {
+  const ancestor = element.closest("header, nav, main, aside, footer");
+  if (!ancestor) return undefined;
+  const tag = ancestor.tagName.toLowerCase();
+  const landmarks: Record<string, NonNullable<SemanticElement["landmark"]>> = {
+    header: "header",
+    nav: "navigation",
+    main: "main",
+    aside: "complementary",
+    footer: "footer"
+  };
+  return landmarks[tag];
 }
 
 export class PageAnalyzer {
@@ -150,16 +169,24 @@ export class PageAnalyzer {
     if (relationToSelection) semantic.relationToSelection = relationToSelection;
     const text = compactText(element);
     const ariaLabel = element.getAttribute("aria-label")?.trim();
+    const alt = element instanceof HTMLImageElement ? element.alt.trim() : undefined;
     const placeholder = element.getAttribute("placeholder")?.trim();
     const href = element instanceof HTMLAnchorElement ? element.href : undefined;
     const src = element instanceof HTMLImageElement ? element.currentSrc || element.src : undefined;
     const hints = classHints(element);
+    const elementLandmark = landmark(element);
+    const containsVisual = !(element instanceof HTMLImageElement)
+      && !(element instanceof SVGElement)
+      && element.querySelector(":scope > img, :scope > svg") !== null;
     if (text) semantic.text = text;
     if (ariaLabel) semantic.ariaLabel = ariaLabel;
+    if (alt) semantic.alt = alt;
     if (placeholder) semantic.placeholder = placeholder;
     if (href) semantic.href = href.slice(0, 500);
     if (src) semantic.src = src.slice(0, 500);
     if (hints) semantic.classHints = hints;
+    if (elementLandmark) semantic.landmark = elementLandmark;
+    if (containsVisual) semantic.containsVisual = true;
     if (Object.keys(styles).length > 0) semantic.styles = styles;
     return semantic;
   }

@@ -6,13 +6,14 @@ import { ElementPicker } from "./elementPicker";
 import { ElementRegistry } from "./elementRegistry";
 import { observeForRegistryCleanup } from "./observer";
 import { PatchEngine } from "./patchEngine";
+import { preloadImageAssets, validateImageAssets } from "./imageAssets";
 
 const registry = new ElementRegistry();
 const analyzer = new PageAnalyzer(registry);
 const patchEngine = new PatchEngine(registry);
 const picker = new ElementPicker(analyzer);
 patchEngine.setStateListener(updateActiveIndicator);
-observeForRegistryCleanup(registry);
+observeForRegistryCleanup(registry, () => patchEngine.reconcileImages());
 
 function success<T>(data: T): ExtensionResponse<T> {
   return { ok: true, data };
@@ -23,13 +24,22 @@ function failure(error: unknown): ExtensionResponse<never> {
 }
 
 chrome.runtime.onMessage.addListener((message: ContentRequest, _sender, sendResponse) => {
+  if (message.type === "WM_APPLY_OPERATIONS") {
+    void (async () => {
+      try {
+        const imageAssets = validateImageAssets(message.imageAssets ?? {});
+        await preloadImageAssets(imageAssets);
+        sendResponse(success<HistoryState>(patchEngine.apply(message.operations, imageAssets)));
+      } catch (error) {
+        sendResponse(failure(error));
+      }
+    })();
+    return true;
+  }
   try {
     switch (message.type) {
       case "WM_ANALYZE_PAGE":
         sendResponse(success<PageAnalysis>(analyzer.analyze(message.selectedElementId)));
-        break;
-      case "WM_APPLY_OPERATIONS":
-        sendResponse(success<HistoryState>(patchEngine.apply(message.operations)));
         break;
       case "WM_START_PICKER":
         picker.start();

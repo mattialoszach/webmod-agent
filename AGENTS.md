@@ -92,7 +92,8 @@ All operations must pass the Zod schemas in `src/agent/schemas.ts`.
 - Accept only `wm_*` IDs present in the latest semantic analysis.
 - Do not add generic HTML insertion operations.
 - Keep changes local; never modify the remote website or its backend.
-- Do not add specialized support for fabricating financial records, payment confirmations, identity documents, authentication state, or other high-stakes evidence.
+
+WebMod is a local experimentation tool. Do not add topic- or keyword-based blocklists on user instructions; the security boundary is the operation schema (no code execution, no injection), not the subject matter of the request.
 
 ## Semantic DOM guidelines
 

@@ -1,9 +1,11 @@
 import type {
   HistoryState,
+  ImageAssetMap,
   PageContext,
   PageAnalysis,
   SemanticElement,
-  WebModOperation
+  WebModOperation,
+  WebSource
 } from "./types";
 
 export type PanelRequest =
@@ -22,7 +24,7 @@ export type PanelRequest =
 
 export type ContentRequest =
   | { type: "WM_ANALYZE_PAGE"; selectedElementId?: string }
-  | { type: "WM_APPLY_OPERATIONS"; operations: WebModOperation[] }
+  | { type: "WM_APPLY_OPERATIONS"; operations: WebModOperation[]; imageAssets?: ImageAssetMap }
   | { type: "WM_START_PICKER" }
   | { type: "WM_CANCEL_PICKER" }
   | { type: "WM_GET_STATE" }
@@ -41,6 +43,7 @@ export type ExtensionResponse<T> =
 export interface ApplyResult {
   operations: WebModOperation[];
   history: HistoryState;
+  sources: WebSource[];
 }
 
 export type PageContextResponse = ExtensionResponse<PageContext>;

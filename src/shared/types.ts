@@ -4,10 +4,13 @@ export interface SemanticElement {
   role: string;
   text?: string;
   ariaLabel?: string;
+  alt?: string;
   placeholder?: string;
   href?: string;
   src?: string;
   classHints?: string[];
+  landmark?: "header" | "navigation" | "main" | "complementary" | "footer";
+  containsVisual?: boolean;
   styles?: Record<string, string>;
   viewport: "visible" | "nearby";
   relationToSelection?: "selected" | "parent" | "sibling";
@@ -27,11 +30,31 @@ export type WebModOperation =
   | { type: "hide"; elementId: string }
   | { type: "replaceImage"; elementId: string; src: string }
   | {
+      type: "setBackgroundImage";
+      elementId: string;
+      src: string;
+      fit: "cover" | "contain";
+      position: "center" | "top" | "bottom" | "left" | "right";
+    }
+  | {
       type: "setAttribute";
       elementId: string;
       attribute: "alt" | "title" | "aria-label" | "placeholder" | "href" | "target";
       value: string;
     };
+
+export interface WebSource {
+  url: string;
+  title: string;
+}
+
+export interface AgentPlan {
+  operations: WebModOperation[];
+  sources: WebSource[];
+  imageCandidates?: string[];
+}
+
+export type ImageAssetMap = Record<string, string>;
 
 export interface PageAnalysis {
   url: string;

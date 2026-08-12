@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApplyResult, ExtensionEvent, ExtensionResponse, PanelRequest } from "../shared/messages";
-import type { HistoryState, PageContext, SemanticElement } from "../shared/types";
+import type { HistoryState, PageContext, SemanticElement, WebSource } from "../shared/types";
 import { Settings } from "./components/Settings";
 
 const EMPTY_HISTORY: HistoryState = { canUndo: false, canRedo: false, changeCount: 0 };
@@ -31,6 +31,7 @@ export function App(): React.JSX.Element {
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [sources, setSources] = useState<WebSource[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const refresh = useCallback(async () => {
@@ -39,6 +40,7 @@ export function App(): React.JSX.Element {
     setPageHost(hostFromUrl(tab?.url));
     setSelected(undefined);
     setError(undefined);
+    setSources([]);
     if (tab?.id === undefined || !tab.url?.startsWith("http")) {
       setHistory(EMPTY_HISTORY);
       return;
@@ -93,6 +95,7 @@ export function App(): React.JSX.Element {
     setLoading(true);
     setError(undefined);
     setNotice(undefined);
+    setSources([]);
     try {
       const result = await request<ApplyResult>({
         type: "PLAN_AND_APPLY",
@@ -102,6 +105,7 @@ export function App(): React.JSX.Element {
       });
       setHistory(result.history);
       setInstruction("");
+      setSources(result.sources);
       setNotice(`${result.operations.length} local ${result.operations.length === 1 ? "change" : "changes"} applied`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not apply the change.");
@@ -128,7 +132,10 @@ export function App(): React.JSX.Element {
       const state = await request<HistoryState>({ type, tabId });
       setHistory(state);
       setNotice(type === "RESET" ? "Page reset" : type === "UNDO" ? "Change undone" : "Change restored");
-      if (type === "RESET") setSelected(undefined);
+      if (type === "RESET") {
+        setSelected(undefined);
+        setSources([]);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : `Could not ${type.toLowerCase()}.`);
     }
@@ -193,6 +200,19 @@ export function App(): React.JSX.Element {
       </section>
 
       {(error || notice) && <div className={error ? "message error" : "message success"} role="status">{error ?? notice}</div>}
+
+      {sources.length > 0 && (
+        <section className="search-sources" aria-label="Web search sources">
+          <div><span>⌕</span><strong>Web sources used</strong></div>
+          <ul>
+            {sources.map((source) => (
+              <li key={source.url}>
+                <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="history-controls" aria-label="Page change history">
         <button type="button" disabled={!history.canUndo || loading} onClick={() => void historyAction("UNDO")}><span>↶</span> Undo</button>

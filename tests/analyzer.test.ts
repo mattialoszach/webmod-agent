@@ -13,7 +13,12 @@ describe("PageAnalyzer", () => {
 
   it("returns compact visible semantic elements with stable IDs", () => {
     document.body.innerHTML = `
-      <main><h1 aria-label="Main title">Hello world</h1><button>Follow</button></main>
+      <header><a href="/"><svg viewBox="0 0 10 10"><path d="M0 0h10v10z" /></svg></a></header>
+      <main>
+        <img class="site-logo" alt="Current company logo" src="/logo.png">
+        <h1 aria-label="Main title">Hello world</h1><button>Follow</button>
+        <table><tbody><tr><th>Module</th><td>Interaction Design</td></tr></tbody></table>
+      </main>
       <aside style="display:none">Hidden sidebar</aside>
       <script>ignore()</script>
     `;
@@ -21,9 +26,14 @@ describe("PageAnalyzer", () => {
     const first = analyzer.analyze();
     const second = analyzer.analyze();
     const heading = first.elements.find((element) => element.tag === "h1");
+    const logo = first.elements.find((element) => element.tag === "img");
+    const headerLogoContainer = first.elements.find((element) => element.tag === "a");
     const selectedContext = heading ? analyzer.analyze(heading.id) : undefined;
 
     expect(heading).toMatchObject({ role: "heading", text: "Hello world", ariaLabel: "Main title" });
+    expect(logo).toMatchObject({ role: "img", alt: "Current company logo", classHints: ["site-logo"] });
+    expect(headerLogoContainer).toMatchObject({ landmark: "header", containsVisual: true });
+    expect(first.elements.some((element) => element.tag === "td" && element.text === "Interaction Design")).toBe(true);
     expect(second.elements.find((element) => element.tag === "h1")?.id).toBe(heading?.id);
     expect(selectedContext?.elements.find((element) => element.id === heading?.id)?.relationToSelection).toBe("selected");
     expect(selectedContext?.elements.some((element) => element.relationToSelection === "parent")).toBe(true);

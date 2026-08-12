@@ -1,4 +1,4 @@
-import type { AgentInput, SemanticElement, WebModOperation } from "../../shared/types";
+import type { AgentInput, AgentPlan, SemanticElement, WebModOperation } from "../../shared/types";
 import type { AIProvider } from "./AIProvider";
 
 const COLOR_NAMES = [
@@ -21,7 +21,7 @@ function quotedOrTrailingText(instruction: string): string | undefined {
 }
 
 export class MockProvider implements AIProvider {
-  async generateOperations(input: AgentInput): Promise<WebModOperation[]> {
+  async generatePlan(input: AgentInput): Promise<AgentPlan> {
     const instruction = input.instruction.trim();
     const lower = instruction.toLowerCase();
     const operations: WebModOperation[] = [];
@@ -30,7 +30,7 @@ export class MockProvider implements AIProvider {
       : undefined;
 
     if (/payment|bank statement|passport|identity document|logged[ -]?in|authentication state/i.test(lower)) {
-      return [];
+      return { operations: [], sources: [] };
     }
 
     const newText = quotedOrTrailingText(instruction);
@@ -53,6 +53,12 @@ export class MockProvider implements AIProvider {
     }
 
     const visualTarget = selected ?? findFirst(input, (element) => {
+      if (/logo/.test(lower)) {
+        return ["img", "svg"].includes(element.tag)
+          || element.role === "img"
+          || element.classHints?.some((hint) => hint.includes("logo")) === true
+          || /logo/i.test(element.alt ?? element.ariaLabel ?? "");
+      }
       if (/main heading|heading|title/.test(lower)) return element.role === "heading" || element.tag === "h1";
       if (/nav(?:bar|igation)?|header/.test(lower)) return element.role === "navigation" || ["nav", "header"].includes(element.tag);
       if (/sidebar/.test(lower)) return element.role === "complementary" || element.tag === "aside";
@@ -61,6 +67,18 @@ export class MockProvider implements AIProvider {
     });
 
     if (visualTarget) {
+      const directImageUrl = instruction.match(/https?:\/\/[^\s<>"']+/i)?.[0];
+      if (directImageUrl && /background/.test(lower)) {
+        operations.push({
+          type: "setBackgroundImage",
+          elementId: visualTarget.id,
+          src: directImageUrl,
+          fit: /contain|entire|whole image/.test(lower) ? "contain" : "cover",
+          position: "center"
+        });
+      } else if (directImageUrl && /logo|image|picture|photo/.test(lower)) {
+        operations.push({ type: "replaceImage", elementId: visualTarget.id, src: directImageUrl });
+      }
       const styles: Record<string, string> = {};
       const color = COLOR_NAMES.find((name) => new RegExp(`\\b${name}\\b`).test(lower));
       const inferredColor = color ?? (/\bdark\b/.test(lower) ? "#18181b" : /\blight\b/.test(lower) ? "#f4f4f5" : undefined);
@@ -92,8 +110,11 @@ export class MockProvider implements AIProvider {
       }
     }
 
-    return operations.filter((operation, index, all) =>
-      all.findIndex((candidate) => JSON.stringify(candidate) === JSON.stringify(operation)) === index
-    );
+    return {
+      operations: operations.filter((operation, index, all) =>
+        all.findIndex((candidate) => JSON.stringify(candidate) === JSON.stringify(operation)) === index
+      ),
+      sources: []
+    };
   }
 }
