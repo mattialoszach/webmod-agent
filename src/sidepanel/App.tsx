@@ -137,15 +137,24 @@ export function App(): React.JSX.Element {
   return (
     <main className="app-shell">
       <header className="brand-row">
-        <div className="brand-mark">W</div>
-        <div>
-          <h1>WEBMOD</h1>
-          <p>Change the page, locally.</p>
+        <div className="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3.25" y="3.75" width="17.5" height="16.5" rx="3" />
+            <path d="M3.75 8.25h16.5" />
+            <circle cx="6.25" cy="6" r=".65" fill="currentColor" stroke="none" />
+            <circle cx="8.5" cy="6" r=".65" fill="currentColor" stroke="none" />
+            <path d="M7 12.25h10M10 10.75v3M7 16h10M14.5 14.5v3" />
+          </svg>
         </div>
+        <div>
+          <h1>WEBMOD <span>AGENT</span></h1>
+          <p>Local page editor</p>
+        </div>
+        <span className="version-pill">BETA</span>
       </header>
 
       <section className="page-card">
-        <span className="status-dot" aria-hidden="true" />
+        <span className="status-dot"><span /></span>
         <div><span>Current page</span><strong>{pageHost}</strong></div>
         {history.changeCount > 0 && <span className="local-pill">{history.changeCount} active</span>}
       </section>
@@ -174,7 +183,7 @@ export function App(): React.JSX.Element {
             }
           }}
         />
-        <div className="keyboard-hint"><span>Enter to apply</span><span>Shift + Enter for a new line</span></div>
+        <div className="keyboard-hint"><span><kbd>↵</kbd> Apply</span><span><kbd>⇧ ↵</kbd> New line</span></div>
         <button className="primary-button" type="button" disabled={loading || !instruction.trim() || tabId === undefined} onClick={() => void apply()}>
           {loading ? <><span className="spinner" /> Planning changes…</> : <><span>✦</span> Apply changes</>}
         </button>
@@ -192,7 +201,7 @@ export function App(): React.JSX.Element {
       </section>
 
       <Settings />
-      <footer><span className="lock">◇</span> All changes stay in your browser</footer>
+      <footer><span className="lock">◇</span> Changes stay local to this browser</footer>
     </main>
   );
 }

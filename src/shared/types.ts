@@ -51,8 +51,10 @@ export interface PageContext {
   history: HistoryState;
 }
 
+export type OpenAIModel = "gpt-5.6-terra" | "gpt-5.6-luna" | "gpt-5.6-sol";
+
 export interface ProviderSettings {
   provider: "mock" | "openai";
   apiKey: string;
-  model: string;
+  model: OpenAIModel;
 }

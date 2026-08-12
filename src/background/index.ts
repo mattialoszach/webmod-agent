@@ -15,12 +15,11 @@ import type {
   PageContext,
   ProviderSettings
 } from "../shared/types";
+import {
+  DEFAULT_PROVIDER_SETTINGS,
+  normalizeProviderSettings
+} from "../shared/providerSettings";
 
-const DEFAULT_SETTINGS: ProviderSettings = {
-  provider: "mock",
-  apiKey: "",
-  model: "gpt-5.6-luna"
-};
 const lastTargetByTab = new Map<number, string>();
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -29,18 +28,14 @@ chrome.runtime.onInstalled.addListener(() => {
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
 
 async function getSettings(): Promise<ProviderSettings> {
-  const stored = await chrome.storage.local.get({ ...DEFAULT_SETTINGS });
-  return {
-    provider: stored.provider === "openai" ? "openai" : "mock",
-    apiKey: typeof stored.apiKey === "string" ? stored.apiKey : "",
-    model: typeof stored.model === "string" && stored.model.trim() ? stored.model.trim() : DEFAULT_SETTINGS.model
-  };
+  const stored = await chrome.storage.local.get({ ...DEFAULT_PROVIDER_SETTINGS });
+  return normalizeProviderSettings(stored);
 }
 
 async function getProvider(): Promise<AIProvider> {
   const settings = await getSettings();
   if (settings.provider === "mock") return new MockProvider();
-  if (!settings.apiKey.trim()) throw new Error("Add an API key in Settings or switch to Mock provider.");
+  if (!settings.apiKey.trim()) throw new Error("Open AI setup and add your OpenAI API key, or switch to Offline demo.");
   return new OpenAIProvider(settings.apiKey.trim(), settings.model);
 }
 
@@ -53,7 +48,7 @@ async function sendToContent<T>(tabId: number, message: ContentRequest): Promise
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     if (/Receiving end does not exist|Could not establish connection|message port closed/i.test(detail)) {
-      throw new Error("WebMod cannot access this page. Open a normal http(s) webpage and reload it once after installing the extension.");
+      throw new Error("WebMod Agent cannot access this page. Open a normal http(s) webpage and reload it once after installing the extension.");
     }
     throw error;
   }
@@ -62,7 +57,7 @@ async function sendToContent<T>(tabId: number, message: ContentRequest): Promise
 function assertSafeInstruction(instruction: string): void {
   const highStakes = /(?:bank statement|account balance|payment (?:receipt|confirmation)|identity document|passport|driver'?s license|authentication state|logged[ -]?in as|verified account)/i;
   if (highStakes.test(instruction)) {
-    throw new Error("WebMod does not modify high-stakes records, identity documents, payments, or authentication state.");
+    throw new Error("WebMod Agent does not modify high-stakes records, identity documents, payments, or authentication state.");
   }
 }
 

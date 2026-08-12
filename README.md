@@ -1,8 +1,8 @@
-# WebMod
+# WebMod Agent
 
-WebMod is a Manifest V3 Chrome extension that turns natural-language instructions into safe, local DOM changes on the current webpage.
+WebMod Agent is a Manifest V3 Chrome extension that turns natural-language instructions into safe, local DOM changes on the current webpage.
 
-It ships with a mock planner, so the core flow works immediately without an API key:
+It ships with a clearly labeled offline demo planner, so the core flow can be tried immediately without an API key:
 
 - “Make the main heading red”
 - “Change the title to Hello”
@@ -10,7 +10,7 @@ It ships with a mock planner, so the core flow works immediately without an API 
 - “Make the navbar black”
 - Select an element, then: “Change this text to Hello World”
 
-An optional OpenAI Responses API provider is available behind the same provider interface.
+The full natural-language experience uses the OpenAI Responses API behind the same provider interface.
 
 ## Architecture
 
@@ -18,7 +18,7 @@ An optional OpenAI Responses API provider is available behind the same provider 
 React side panel
        │ typed request
        ▼
-MV3 service worker ──► AIProvider (Mock or OpenAI)
+MV3 service worker ──► AIProvider (Offline demo or OpenAI)
        │                    │
        │ semantic DOM       │ validated operations
        ▼                    ▼
@@ -29,7 +29,7 @@ Content script: analyzer → element registry → patch engine → webpage DOM
 
 The service worker is the AI trust boundary. The model sees a compact semantic representation of visible or nearby elements, never the full page HTML. Every response is parsed and validated with Zod, checked against analyzed element IDs, and sent to the patch engine. Model-produced JavaScript, HTML, selectors, event handlers, and unsupported operations are never executed.
 
-All page changes are local and disappear on reload. WebMod also displays a persistent in-page badge while local changes are active.
+All page changes are local and disappear on reload. WebMod Agent also displays a persistent in-page badge while local changes are active.
 
 ## Requirements
 
@@ -63,24 +63,25 @@ The production extension is emitted to `dist/`.
 3. Enable **Developer mode** in the top-right corner.
 4. Click **Load unpacked**.
 5. Select this repository’s `dist` directory.
-6. Open a normal `http://` or `https://` webpage. If it was already open when WebMod was first installed, reload it once so the content script is present.
-7. Click the WebMod toolbar action. Chrome opens the WebMod side panel.
-8. Leave the provider set to **Mock**, type “Make the main heading red,” and press Enter or click **Apply changes**.
+6. Open a normal `http://` or `https://` webpage. If it was already open when WebMod Agent was first installed, reload it once so the content script is present.
+7. Click the WebMod Agent toolbar action. Chrome opens the WebMod Agent side panel.
+8. Leave **AI setup** in **Offline demo**, type “Make the main heading red,” and press Enter or click **Apply changes**.
 
-After changing source files, run `npm run build` again and click the reload button on WebMod’s card in `chrome://extensions`.
+After changing source files, run `npm run build` again and click the reload button on WebMod Agent’s card in `chrome://extensions`.
 
 Chrome does not allow content scripts on internal pages such as `chrome://extensions`, the Chrome Web Store, or some browser PDF/internal viewers. Test on a normal website.
 
 ## AI provider settings
 
-Mock mode is the default and supports common development prompts with no network access.
+Offline demo is the default. It is not an AI model: it recognizes a small, documented set of development prompts with no network access.
 
 To use the real provider:
 
-1. Expand **AI provider** in the side panel.
-2. Choose **OpenAI Responses API**.
-3. Enter an API key and model name.
-4. Save settings.
+1. Expand **AI setup** in the side panel.
+2. Choose **OpenAI**.
+3. Enter your required OpenAI API key.
+4. Select GPT-5.6 Terra (balanced), Luna (fast and economical), or Sol (highest capability).
+5. Save the AI setup.
 
 The API call runs only in the extension service worker. The key is stored in `chrome.storage.local` and is never passed to the content script or webpage. For a production release, replace user-managed local API keys with a backend token exchange or another managed authentication design.
 
@@ -143,7 +144,7 @@ The API call runs only in the extension service worker. The key is stored in `ch
 - History is scoped to the current content-script lifetime and is lost on navigation or reload.
 - The semantic analyzer caps and prioritizes elements, so targets far outside the viewport or deep inside shadow DOM may be omitted.
 - Element IDs refer to light-DOM nodes. Cross-origin iframes and closed shadow roots are not inspected.
-- Mock mode intentionally recognizes a small prompt vocabulary; nuanced instructions require the real provider.
+- Offline demo intentionally recognizes a small prompt vocabulary; nuanced instructions require the OpenAI provider.
 - Direct API-key storage is acceptable for local MVP development, not the preferred production credential architecture.
 
 ## Best next technical improvements
