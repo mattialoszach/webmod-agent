@@ -61,7 +61,7 @@ async function handleRequest(message: PanelRequest): Promise<unknown> {
       const [analysis, history] = await Promise.all([
         sendToContent<PageAnalysis>(message.tabId, {
           type: "WM_ANALYZE_PAGE",
-          selectedElementId: message.selectedElementId
+          selectedElementIds: message.selectedElementIds
         }),
         sendToContent<HistoryState>(message.tabId, { type: "WM_GET_STATE" })
       ]);
@@ -71,16 +71,22 @@ async function handleRequest(message: PanelRequest): Promise<unknown> {
       const instruction = message.instruction.trim();
       if (!instruction) throw new Error("Describe what you want to change.");
       const isContinuation = /\b(?:it|this|that|too|also|actually|instead|slightly)\b/i.test(instruction);
-      const rememberedElementId = message.selectedElementId ?? (isContinuation ? lastTargetByTab.get(message.tabId) : undefined);
+      const explicitSelectedIds = message.selectedElementIds ?? [];
+      const rememberedElementId = explicitSelectedIds.length === 0 && isContinuation
+        ? lastTargetByTab.get(message.tabId)
+        : undefined;
+      const requestedSelectedIds = explicitSelectedIds.length > 0
+        ? explicitSelectedIds
+        : rememberedElementId ? [rememberedElementId] : [];
       let analysis = await sendToContent<PageAnalysis>(message.tabId, {
         type: "WM_ANALYZE_PAGE",
-        selectedElementId: rememberedElementId
+        selectedElementIds: requestedSelectedIds
       });
-      if (message.selectedElementId && !analysis.selectedElement) {
-        throw new Error("The selected element is no longer on the page. Select it again.");
+      if (explicitSelectedIds.length > 0 && analysis.selectedElements.length !== explicitSelectedIds.length) {
+        throw new Error("One or more selected elements are no longer on the page. Select them again.");
       }
-      const effectiveSelectedId = analysis.selectedElement ? rememberedElementId : undefined;
-      if (rememberedElementId && !analysis.selectedElement && !message.selectedElementId) {
+      const effectiveSelectedIds = analysis.selectedElements.map((element) => element.id);
+      if (rememberedElementId && effectiveSelectedIds.length === 0) {
         lastTargetByTab.delete(message.tabId);
         analysis = await sendToContent<PageAnalysis>(message.tabId, { type: "WM_ANALYZE_PAGE" });
       }
@@ -90,7 +96,7 @@ async function handleRequest(message: PanelRequest): Promise<unknown> {
         url: analysis.url,
         pageTitle: analysis.pageTitle,
         elements: analysis.elements,
-        selectedElementId: effectiveSelectedId
+        selectedElementIds: effectiveSelectedIds.length > 0 ? effectiveSelectedIds : undefined
       });
       const operations = validateOperations({ operations: plan.operations });
       const knownElements = new Map(analysis.elements.map((element) => [element.id, element]));

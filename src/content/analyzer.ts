@@ -97,7 +97,7 @@ function landmark(element: Element): SemanticElement["landmark"] {
 export class PageAnalyzer {
   constructor(private readonly registry: ElementRegistry) {}
 
-  analyze(selectedElementId?: string): PageAnalysis {
+  analyze(selectedElementIds: string[] = []): PageAnalysis {
     this.registry.cleanup();
     const candidates = Array.from(document.querySelectorAll(CANDIDATE_SELECTOR))
       .flatMap((element) => {
@@ -116,33 +116,43 @@ export class PageAnalyzer {
     }).slice(0, MAX_ELEMENTS);
 
     const elements = included.map(({ element, viewport }) => this.toSemanticElement(element, viewport));
-    const selectedElement = selectedElementId ? this.registry.getElement(selectedElementId) : undefined;
-    if (selectedElement) {
-      const related: Array<{ element: Element; relation: "selected" | "parent" | "sibling" }> = [
-        { element: selectedElement, relation: "selected" }
+    const selectedElements = selectedElementIds.flatMap((id) => {
+      const element = this.registry.getElement(id);
+      return element ? [element] : [];
+    });
+    const selectedSet = new Set(selectedElements);
+    const related = new Map<Element, "selected" | "parent" | "sibling">();
+    for (const selectedElement of selectedElements) {
+      related.set(selectedElement, "selected");
+      const context: Array<{ element?: Element | null; relation: "parent" | "sibling" }> = [
+        { element: selectedElement.parentElement, relation: "parent" },
+        { element: selectedElement.previousElementSibling, relation: "sibling" },
+        { element: selectedElement.nextElementSibling, relation: "sibling" }
       ];
-      if (selectedElement.parentElement) related.push({ element: selectedElement.parentElement, relation: "parent" });
-      if (selectedElement.previousElementSibling) related.push({ element: selectedElement.previousElementSibling, relation: "sibling" });
-      if (selectedElement.nextElementSibling) related.push({ element: selectedElement.nextElementSibling, relation: "sibling" });
-      for (const context of related.reverse()) {
-        const id = this.registry.getId(context.element);
-        const existing = elements.find((element) => element.id === id);
-        if (existing) existing.relationToSelection = context.relation;
-        else elements.unshift(this.toSemanticElement(
-          context.element,
-          viewportPosition(context.element) ?? "nearby",
-          context.relation
-        ));
+      for (const item of context) {
+        if (item.element && !selectedSet.has(item.element) && !related.has(item.element)) {
+          related.set(item.element, item.relation);
+        }
       }
+    }
+    for (const [contextElement, relation] of [...related].reverse()) {
+      const id = this.registry.getId(contextElement);
+      const existing = elements.find((element) => element.id === id);
+      if (existing) existing.relationToSelection = relation;
+      else elements.unshift(this.toSemanticElement(
+        contextElement,
+        viewportPosition(contextElement) ?? "nearby",
+        relation
+      ));
     }
 
     return {
       url: location.href,
       pageTitle: document.title,
       elements,
-      selectedElement: selectedElement
-        ? this.toSemanticElement(selectedElement, viewportPosition(selectedElement) ?? "nearby")
-        : undefined
+      selectedElements: selectedElements.map((element) =>
+        this.toSemanticElement(element, viewportPosition(element) ?? "nearby", "selected")
+      )
     };
   }
 

@@ -95,11 +95,15 @@ textarea:focus { border-color: #258ed0; background: #0b131f; box-shadow: 0 0 0 3
 textarea::placeholder { color: #4f5e71; }
 .keyboard-hint { display: flex; justify-content: space-between; color: #5f7087; font-size: 9px; margin-top: -3px; }
 .keyboard-hint kbd { padding: 1px 4px; border: 1px solid #26364a; border-radius: 4px; color: #8292a8; background: #0c1420; font-size: 8px; font-family: inherit; }
-.selected-chip { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border: 1px solid rgba(48, 201, 255, .26); border-radius: 10px; background: var(--accent-soft); color: #bdefff; font-size: 10px; min-width: 0; }
+.selected-elements { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid rgba(48, 201, 255, .26); border-radius: 10px; background: var(--accent-soft); }
+.selected-header { display: flex; align-items: center; justify-content: space-between; color: #50cdf7; font-size: 8px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.selected-header button { border: 0; padding: 2px 3px; background: transparent; color: #78dcff; font-size: 9px; font-weight: 750; text-transform: none; letter-spacing: 0; }
+.selected-header button:hover { color: #c1f1ff; }
+.selected-chip { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 7px; border-radius: 7px; background: rgba(4, 17, 28, .36); color: #bdefff; font-size: 10px; }
 .selected-chip > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.selected-chip small { display: block; color: #50cdf7; font-size: 7px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
 .selected-icon { font-size: 15px; }
-.selected-chip button { margin-left: auto; border: 0; background: transparent; color: #78dcff; font-size: 18px; line-height: 1; }
+.selection-toggle { align-self: center; border: 0; padding: 3px 8px; background: transparent; color: #78dcff; font-size: 9px; font-weight: 750; }
+.selection-toggle:hover { color: #c1f1ff; }
 
 .primary-button, .picker-button, .save-button { width: 100%; min-height: 41px; border-radius: 10px; font-weight: 780; font-size: 12px; transition: transform .12s, border-color .15s, background .15s, opacity .15s, box-shadow .15s; }
 .primary-button { display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #42cfff; color: #06111b; background: linear-gradient(135deg, #61dcff, #239dff); box-shadow: 0 8px 22px rgba(22, 136, 255, .18), inset 0 1px 0 rgba(255, 255, 255, .46); }

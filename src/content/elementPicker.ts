@@ -48,7 +48,7 @@ export class ElementPicker {
       width: `${rect.width}px`,
       height: `${rect.height}px`
     });
-    this.label.textContent = `${target.tagName.toLowerCase()} · click to select`;
+    this.label.textContent = `${target.tagName.toLowerCase()} · click to add · Esc when done`;
     this.label.style.left = `${Math.max(8, rect.left)}px`;
     this.label.style.top = `${Math.max(8, rect.top - 30)}px`;
   };
@@ -59,7 +59,6 @@ export class ElementPicker {
     event.stopPropagation();
     event.stopImmediatePropagation();
     const element = this.analyzer.describeElement(this.hovered);
-    this.cancel(false);
     this.sendEvent({ type: "WM_ELEMENT_PICKED", element });
   };
 

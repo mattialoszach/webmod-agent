@@ -28,15 +28,19 @@ describe("PageAnalyzer", () => {
     const heading = first.elements.find((element) => element.tag === "h1");
     const logo = first.elements.find((element) => element.tag === "img");
     const headerLogoContainer = first.elements.find((element) => element.tag === "a");
-    const selectedContext = heading ? analyzer.analyze(heading.id) : undefined;
+    const button = first.elements.find((element) => element.tag === "button");
+    const selectedIds = [heading?.id, button?.id].filter((id): id is string => id !== undefined);
+    const selectedContext = analyzer.analyze(selectedIds);
 
     expect(heading).toMatchObject({ role: "heading", text: "Hello world", ariaLabel: "Main title" });
     expect(logo).toMatchObject({ role: "img", alt: "Current company logo", classHints: ["site-logo"] });
     expect(headerLogoContainer).toMatchObject({ landmark: "header", containsVisual: true });
     expect(first.elements.some((element) => element.tag === "td" && element.text === "Interaction Design")).toBe(true);
     expect(second.elements.find((element) => element.tag === "h1")?.id).toBe(heading?.id);
-    expect(selectedContext?.elements.find((element) => element.id === heading?.id)?.relationToSelection).toBe("selected");
-    expect(selectedContext?.elements.some((element) => element.relationToSelection === "parent")).toBe(true);
+    expect(selectedContext.elements.find((element) => element.id === heading?.id)?.relationToSelection).toBe("selected");
+    expect(selectedContext.elements.find((element) => element.id === button?.id)?.relationToSelection).toBe("selected");
+    expect(selectedContext.selectedElements.map((element) => element.id)).toEqual(selectedIds);
+    expect(selectedContext.elements.some((element) => element.relationToSelection === "parent")).toBe(true);
     expect(first.elements.some((element) => element.text === "Hidden sidebar")).toBe(false);
     expect(first.elements.some((element) => element.tag === "script")).toBe(false);
   });

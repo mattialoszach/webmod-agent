@@ -39,7 +39,7 @@ chrome.runtime.onMessage.addListener((message: ContentRequest, _sender, sendResp
   try {
     switch (message.type) {
       case "WM_ANALYZE_PAGE":
-        sendResponse(success<PageAnalysis>(analyzer.analyze(message.selectedElementId)));
+        sendResponse(success<PageAnalysis>(analyzer.analyze(message.selectedElementIds)));
         break;
       case "WM_START_PICKER":
         picker.start();

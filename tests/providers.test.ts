@@ -24,7 +24,7 @@ describe("AI providers", () => {
     await expect(new MockProvider().generatePlan({
       ...input,
       instruction: "Use https://images.example.com/duck.jpg as the background",
-      selectedElementId: "wm_1"
+      selectedElementIds: ["wm_1"]
     })).resolves.toMatchObject({
       operations: [{
         type: "setBackgroundImage",
@@ -33,6 +33,23 @@ describe("AI providers", () => {
         fit: "cover",
         position: "center"
       }]
+    });
+  });
+
+  it("applies an offline style change to every selected element", async () => {
+    await expect(new MockProvider().generatePlan({
+      ...input,
+      instruction: "Make these red",
+      elements: [
+        ...input.elements,
+        { id: "wm_2", tag: "p", role: "text", text: "Second", viewport: "visible" }
+      ],
+      selectedElementIds: ["wm_1", "wm_2"]
+    })).resolves.toMatchObject({
+      operations: [
+        { type: "setStyles", elementId: "wm_1", styles: { color: "red" } },
+        { type: "setStyles", elementId: "wm_2", styles: { color: "red" } }
+      ]
     });
   });
 

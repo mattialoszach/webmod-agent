@@ -9,12 +9,12 @@ import type {
 } from "./types";
 
 export type PanelRequest =
-  | { type: "GET_PAGE_CONTEXT"; tabId: number; selectedElementId?: string }
+  | { type: "GET_PAGE_CONTEXT"; tabId: number; selectedElementIds?: string[] }
   | {
       type: "PLAN_AND_APPLY";
       tabId: number;
       instruction: string;
-      selectedElementId?: string;
+      selectedElementIds?: string[];
     }
   | { type: "START_ELEMENT_PICKER"; tabId: number }
   | { type: "CANCEL_ELEMENT_PICKER"; tabId: number }
@@ -23,7 +23,7 @@ export type PanelRequest =
   | { type: "RESET"; tabId: number };
 
 export type ContentRequest =
-  | { type: "WM_ANALYZE_PAGE"; selectedElementId?: string }
+  | { type: "WM_ANALYZE_PAGE"; selectedElementIds?: string[] }
   | { type: "WM_APPLY_OPERATIONS"; operations: WebModOperation[]; imageAssets?: ImageAssetMap }
   | { type: "WM_START_PICKER" }
   | { type: "WM_CANCEL_PICKER" }

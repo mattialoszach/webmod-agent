@@ -9,7 +9,7 @@ It ships with a clearly labeled offline demo planner, so the core flow can be tr
 - “Hide the sidebar”
 - “Make the navbar black”
 - “Use https://example.com/duck.jpg as the background”
-- Select an element, then: “Change this text to Hello World”
+- Select one or more elements, then: “Make these red”
 
 The full natural-language experience uses the OpenAI Responses API behind the same provider interface. In OpenAI mode, the planner can use bounded web and image search when an instruction explicitly requires current information or a web image, for example: “Find a duck image and use it as the page background.”
 
@@ -71,6 +71,8 @@ The production extension is emitted to `dist/`.
 6. Open a normal `http://` or `https://` webpage. If it was already open when WebMod Agent was first installed, reload it once so the content script is present.
 7. Click the WebMod Agent toolbar action. Chrome opens the WebMod Agent side panel.
 8. Leave **AI setup** in **Offline demo**, type “Make the main heading red,” and press Enter or click **Apply changes**.
+
+To use page elements as references, click **Select elements**, click as many elements as needed on the page, then press Escape or click **Done selecting**. The side panel keeps the selection as a compact list, folds it after three items, and provides **Clear all** to remove every reference at once.
 
 After changing source files, run `npm run build` again and click the reload button on WebMod Agent’s card in `chrome://extensions`.
 

@@ -7,11 +7,14 @@ const COLOR_NAMES = [
 ];
 
 function findFirst(input: AgentInput, predicate: (element: SemanticElement) => boolean): SemanticElement | undefined {
-  if (input.selectedElementId) {
-    const selected = input.elements.find((element) => element.id === input.selectedElementId);
-    if (selected) return selected;
-  }
+  const selected = selectedElements(input)[0];
+  if (selected) return selected;
   return input.elements.find(predicate);
+}
+
+function selectedElements(input: AgentInput): SemanticElement[] {
+  const ids = new Set(input.selectedElementIds ?? []);
+  return input.elements.filter((element) => ids.has(element.id));
 }
 
 function quotedOrTrailingText(instruction: string): string | undefined {
@@ -25,9 +28,7 @@ export class MockProvider implements AIProvider {
     const instruction = input.instruction.trim();
     const lower = instruction.toLowerCase();
     const operations: WebModOperation[] = [];
-    const selected = input.selectedElementId
-      ? input.elements.find((element) => element.id === input.selectedElementId)
-      : undefined;
+    const selected = selectedElements(input);
 
     if (/payment|bank statement|passport|identity document|logged[ -]?in|authentication state/i.test(lower)) {
       return { operations: [], sources: [] };
@@ -35,24 +36,24 @@ export class MockProvider implements AIProvider {
 
     const newText = quotedOrTrailingText(instruction);
     if (newText && /change|replace|set/.test(lower)) {
-      const target = selected ?? findFirst(input, (element) =>
+      const targets = selected.length > 0 ? selected : [findFirst(input, (element) =>
         /title|heading/.test(lower)
           ? element.role === "heading" || /^h[1-3]$/.test(element.tag)
           : Boolean(element.text)
-      );
-      if (target) operations.push({ type: "replaceText", elementId: target.id, value: newText });
+      )].filter((element): element is SemanticElement => element !== undefined);
+      for (const target of targets) operations.push({ type: "replaceText", elementId: target.id, value: newText });
     }
 
     if (/hide|remove/.test(lower)) {
-      const target = selected ?? findFirst(input, (element) => {
+      const targets = selected.length > 0 ? selected : [findFirst(input, (element) => {
         if (/sidebar/.test(lower)) return element.role === "complementary" || element.classHints?.includes("sidebar") === true;
         if (/nav(?:bar|igation)?/.test(lower)) return element.role === "navigation" || element.tag === "nav";
         return Boolean(element.text && lower.includes(element.text.toLowerCase().slice(0, 24)));
-      });
-      if (target) operations.push({ type: "hide", elementId: target.id });
+      })].filter((element): element is SemanticElement => element !== undefined);
+      for (const target of targets) operations.push({ type: "hide", elementId: target.id });
     }
 
-    const visualTarget = selected ?? findFirst(input, (element) => {
+    const fallbackVisualTarget = findFirst(input, (element) => {
       if (/logo/.test(lower)) {
         return ["img", "svg"].includes(element.tag)
           || element.role === "img"
@@ -65,19 +66,26 @@ export class MockProvider implements AIProvider {
       if (/card/.test(lower)) return element.classHints?.includes("card") === true || element.role === "article";
       return element.tag === "main" || element.tag === "body";
     });
+    const visualTargets = selected.length > 0
+      ? selected
+      : fallbackVisualTarget ? [fallbackVisualTarget] : [];
 
-    if (visualTarget) {
+    if (visualTargets.length > 0) {
       const directImageUrl = instruction.match(/https?:\/\/[^\s<>"']+/i)?.[0];
       if (directImageUrl && /background/.test(lower)) {
-        operations.push({
-          type: "setBackgroundImage",
-          elementId: visualTarget.id,
-          src: directImageUrl,
-          fit: /contain|entire|whole image/.test(lower) ? "contain" : "cover",
-          position: "center"
-        });
+        for (const target of visualTargets) {
+          operations.push({
+            type: "setBackgroundImage",
+            elementId: target.id,
+            src: directImageUrl,
+            fit: /contain|entire|whole image/.test(lower) ? "contain" : "cover",
+            position: "center"
+          });
+        }
       } else if (directImageUrl && /logo|image|picture|photo/.test(lower)) {
-        operations.push({ type: "replaceImage", elementId: visualTarget.id, src: directImageUrl });
+        for (const target of visualTargets) {
+          operations.push({ type: "replaceImage", elementId: target.id, src: directImageUrl });
+        }
       }
       const styles: Record<string, string> = {};
       const color = COLOR_NAMES.find((name) => new RegExp(`\\b${name}\\b`).test(lower));
@@ -106,7 +114,9 @@ export class MockProvider implements AIProvider {
         styles["font-family"] = "system-ui, sans-serif";
       }
       if (Object.keys(styles).length > 0) {
-        operations.push({ type: "setStyles", elementId: visualTarget.id, styles });
+        for (const target of visualTargets) {
+          operations.push({ type: "setStyles", elementId: target.id, styles });
+        }
       }
     }
 

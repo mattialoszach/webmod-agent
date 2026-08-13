@@ -4,6 +4,7 @@ import type { HistoryState, PageContext, SemanticElement, WebSource } from "../s
 import { Settings } from "./components/Settings";
 
 const EMPTY_HISTORY: HistoryState = { canUndo: false, canRedo: false, changeCount: 0 };
+const COLLAPSED_SELECTION_COUNT = 3;
 
 async function activeTab(): Promise<chrome.tabs.Tab | undefined> {
   return (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
@@ -25,7 +26,8 @@ export function App(): React.JSX.Element {
   const [tabId, setTabId] = useState<number>();
   const [pageHost, setPageHost] = useState("Loading…");
   const [instruction, setInstruction] = useState("");
-  const [selected, setSelected] = useState<SemanticElement>();
+  const [selectedElements, setSelectedElements] = useState<SemanticElement[]>([]);
+  const [selectionsExpanded, setSelectionsExpanded] = useState(false);
   const [history, setHistory] = useState<HistoryState>(EMPTY_HISTORY);
   const [loading, setLoading] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -38,7 +40,8 @@ export function App(): React.JSX.Element {
     const tab = await activeTab();
     setTabId(tab?.id);
     setPageHost(hostFromUrl(tab?.url));
-    setSelected(undefined);
+    setSelectedElements([]);
+    setSelectionsExpanded(false);
     setError(undefined);
     setSources([]);
     if (tab?.id === undefined || !tab.url?.startsWith("http")) {
@@ -61,7 +64,8 @@ export function App(): React.JSX.Element {
       if (updatedTabId === tabId && (change.url || change.status === "complete")) {
         setPageHost(hostFromUrl(tab.url));
         if (change.url) {
-          setSelected(undefined);
+          setSelectedElements([]);
+          setSelectionsExpanded(false);
           setHistory(EMPTY_HISTORY);
         }
       }
@@ -77,12 +81,13 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     const listener = (message: ExtensionEvent): false => {
       if (message.type === "WM_ELEMENT_PICKED") {
-        setSelected(message.element);
-        setPicking(false);
+        setSelectedElements((current) => current.some((element) => element.id === message.element.id)
+          ? current
+          : [...current, message.element]);
         setError(undefined);
-        window.setTimeout(() => textareaRef.current?.focus(), 0);
       } else if (message.type === "WM_PICKER_CANCELLED") {
         setPicking(false);
+        window.setTimeout(() => textareaRef.current?.focus(), 0);
       }
       return false;
     };
@@ -101,7 +106,9 @@ export function App(): React.JSX.Element {
         type: "PLAN_AND_APPLY",
         tabId,
         instruction: instruction.trim(),
-        selectedElementId: selected?.id
+        selectedElementIds: selectedElements.length > 0
+          ? selectedElements.map((element) => element.id)
+          : undefined
       });
       setHistory(result.history);
       setInstruction("");
@@ -118,8 +125,14 @@ export function App(): React.JSX.Element {
     if (tabId === undefined) return;
     setError(undefined);
     try {
-      await request<HistoryState>({ type: "START_ELEMENT_PICKER", tabId });
-      setPicking(true);
+      if (picking) {
+        await request<HistoryState>({ type: "CANCEL_ELEMENT_PICKER", tabId });
+        setPicking(false);
+        window.setTimeout(() => textareaRef.current?.focus(), 0);
+      } else {
+        await request<HistoryState>({ type: "START_ELEMENT_PICKER", tabId });
+        setPicking(true);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not start element selection.");
     }
@@ -133,13 +146,19 @@ export function App(): React.JSX.Element {
       setHistory(state);
       setNotice(type === "RESET" ? "Page reset" : type === "UNDO" ? "Change undone" : "Change restored");
       if (type === "RESET") {
-        setSelected(undefined);
+        setSelectedElements([]);
+        setSelectionsExpanded(false);
         setSources([]);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : `Could not ${type.toLowerCase()}.`);
     }
   }
+
+  const visibleSelectedElements = selectionsExpanded
+    ? selectedElements
+    : selectedElements.slice(0, COLLAPSED_SELECTION_COUNT);
+  const hiddenSelectionCount = selectedElements.length - visibleSelectedElements.length;
 
   return (
     <main className="app-shell">
@@ -168,11 +187,31 @@ export function App(): React.JSX.Element {
 
       <section className="composer">
         <label htmlFor="instruction">What do you want to change?</label>
-        {selected && (
-          <div className="selected-chip">
-            <span className="selected-icon">⌖</span>
-            <span><small>Selected</small>{selected.tag}{selected.text ? ` · ${selected.text.slice(0, 42)}` : ""}</span>
-            <button type="button" onClick={() => setSelected(undefined)} aria-label="Clear selection">×</button>
+        {selectedElements.length > 0 && (
+          <div className="selected-elements" aria-label="Selected element references">
+            <div className="selected-header">
+              <span>{selectedElements.length} selected</span>
+              <button type="button" onClick={() => {
+                setSelectedElements([]);
+                setSelectionsExpanded(false);
+              }}>Clear all</button>
+            </div>
+            {visibleSelectedElements.map((element) => (
+              <div className="selected-chip" key={element.id}>
+                <span className="selected-icon">⌖</span>
+                <span>{element.tag}{element.text ? ` · ${element.text.slice(0, 42)}` : ""}</span>
+              </div>
+            ))}
+            {(hiddenSelectionCount > 0 || selectionsExpanded && selectedElements.length > COLLAPSED_SELECTION_COUNT) && (
+              <button
+                className="selection-toggle"
+                type="button"
+                aria-expanded={selectionsExpanded}
+                onClick={() => setSelectionsExpanded((expanded) => !expanded)}
+              >
+                {selectionsExpanded ? "Show less" : `+${hiddenSelectionCount} more`}
+              </button>
+            )}
           </div>
         )}
         <textarea
@@ -180,7 +219,7 @@ export function App(): React.JSX.Element {
           id="instruction"
           value={instruction}
           disabled={loading}
-          placeholder={selected ? "Change this text to Hello World" : "Make the main heading red…"}
+          placeholder={selectedElements.length > 0 ? "Make these elements red…" : "Make the main heading red…"}
           rows={5}
           onChange={(event) => setInstruction(event.target.value)}
           onKeyDown={(event) => {
@@ -195,7 +234,7 @@ export function App(): React.JSX.Element {
           {loading ? <><span className="spinner" /> Planning changes…</> : <><span>✦</span> Apply changes</>}
         </button>
         <button className={`picker-button${picking ? " picking" : ""}`} type="button" disabled={loading || tabId === undefined} onClick={() => void startPicker()}>
-          <span>⌖</span> {picking ? "Click an element on the page…" : "Select element"}
+          <span>⌖</span> {picking ? "Done selecting" : selectedElements.length > 0 ? "Select more elements" : "Select elements"}
         </button>
       </section>
 

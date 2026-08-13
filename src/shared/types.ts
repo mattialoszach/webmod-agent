@@ -21,7 +21,7 @@ export interface AgentInput {
   url: string;
   pageTitle: string;
   elements: SemanticElement[];
-  selectedElementId?: string;
+  selectedElementIds?: string[];
 }
 
 export type WebModOperation =
@@ -60,7 +60,7 @@ export interface PageAnalysis {
   url: string;
   pageTitle: string;
   elements: SemanticElement[];
-  selectedElement?: SemanticElement;
+  selectedElements: SemanticElement[];
 }
 
 export interface HistoryState {

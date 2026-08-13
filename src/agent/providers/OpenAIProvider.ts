@@ -164,11 +164,14 @@ function logoScore(element: AgentInput["elements"][number]): number {
   return score;
 }
 
+function selectedElements(input: AgentInput): AgentInput["elements"] {
+  const ids = new Set(input.selectedElementIds ?? []);
+  return input.elements.filter((element) => ids.has(element.id));
+}
+
 function findLogoTarget(input: AgentInput): AgentInput["elements"][number] | undefined {
-  if (input.selectedElementId) {
-    const selected = input.elements.find((element) => element.id === input.selectedElementId);
-    if (selected && imageCompatible(selected)) return selected;
-  }
+  const selected = selectedElements(input).find(imageCompatible);
+  if (selected) return selected;
   const ranked = input.elements
     .filter(imageCompatible)
     .map((element) => ({ element, score: logoScore(element) }))
@@ -177,10 +180,8 @@ function findLogoTarget(input: AgentInput): AgentInput["elements"][number] | und
 }
 
 function findBackgroundTarget(input: AgentInput): AgentInput["elements"][number] | undefined {
-  if (input.selectedElementId) {
-    const selected = input.elements.find((element) => element.id === input.selectedElementId);
-    if (selected) return selected;
-  }
+  const selected = selectedElements(input)[0];
+  if (selected) return selected;
   return input.elements.find((element) => element.tag === "body")
     ?? input.elements.find((element) => element.tag === "main" || element.role === "main")
     ?? input.elements.find((element) => ["section", "article"].includes(element.tag));
