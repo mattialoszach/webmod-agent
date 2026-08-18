@@ -2,7 +2,7 @@
 
 WebMod Agent is a Manifest V3 Chrome extension that turns natural-language instructions into safe, local DOM changes on the current webpage.
 
-![WebMod Agent editing a Wikipedia page from the Chrome side panel](docs/screenshots/demo.png)
+![WebMod Agent editing a Wikipedia page from the Chrome side panel](docs/screenshots/demo.webp)
 
 It ships with a clearly labeled offline demo planner, so the core flow can be tried immediately without an API key:
 
